@@ -1,0 +1,26 @@
+DB_NAME: test-db
+DB_USER: review
+DB_PORT: 3306
+DB_PASSWORD: sql@123$1
+pvc:
+  mode: ReadWriteOnce
+  sc-name: gp3
+  gb: 5Gi
+statefulset:
+  sql-svc: helm-sql-svc
+  replicascount: 1
+  type: OnDelete
+sql:
+  image: mysql
+  port: 3306
+  conatinerName: sql-container
+sqlservice:
+  port: 1433
+deploy:
+  count: 1
+  image: nginx
+  version: latest
+  port: 8080
+deploysvc:
+  type: NodePort
+  port: 80

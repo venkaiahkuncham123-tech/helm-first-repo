@@ -4,7 +4,7 @@ metadata:
   name: {{ .Chart.Name }}-cm
   namespace: {{ .Chart.Name }}
 data:
-  DB_HOST: {{ .Values.DB_HOST | quote }}
+  DB_HOST: {{ .Values.statefulset.sql-svc | quote }}
   DB_NAME: {{ .Values.DB_NAME | quote }}
   DB_USER: {{ .Values.DB_USER | quote }}
   DB_PORT: {{ .Values.DB_PORT | quote }}
