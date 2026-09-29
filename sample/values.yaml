@@ -1,0 +1,10 @@
+image:
+  name: nginx
+#  image: httpd
+port: 80
+
+livenessprobe:
+  port: 80
+
+service:
+  type: NodePort

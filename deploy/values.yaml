@@ -1,0 +1,15 @@
+namespace: helm
+
+spec:
+  replicas: 3
+  type: RollingUpdate
+  
+image:
+  image: nginx
+  port: 80
+  pullpolicy: Always
+  restartpolicy: OnFailure  
+
+service:
+  type: NodePort
+  nodeport: 32001

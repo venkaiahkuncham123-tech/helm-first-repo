@@ -1,8 +1,7 @@
 apiVersion: v1
-kind: NameSpace:
+kind: Namespace
 metadata:
   name: {{ .Chart.Name }}
-
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -10,11 +9,11 @@ metadata:
   name: {{ .Chart.Name }}-cm
   namespace: {{ .Chart.Name }}
 data:
-  DB_HOST: {{ .Values.statefulset.sql-svc | quote }}
+  DB_HOST: {{ .Values.statefulset.sqlsvc | quote }}
   DB_NAME: {{ .Values.DB_NAME | quote }}
   DB_USER: {{ .Values.DB_USER | quote }}
   DB_PORT: {{ .Values.DB_PORT | quote }}
---
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -22,7 +21,7 @@ metadata:
   namespace: {{ .Chart.Name }}
 type: Opaque
 data:
-  DB_PASSWORD: {{ .Values.DB_PASSWORD | base64 }}
+  DB_PASSWORD: {{ .Values.DB_PASSWORD | b64enc | quote }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -30,9 +29,9 @@ metadata:
   name: {{ .Chart.Name }}-pvc
   namespace: {{ .Chart.Name }}
 spec:
-  acessModes:
+  accessModes:
     - {{ .Values.pvc.mode }}
-  storageClassName: {{ .Values.pvc.sc-name }}
+  storageClassName: {{ .Values.pvc.scname }}
   resources:
     requests:
       storage: {{ .Values.pvc.gb }}
@@ -43,8 +42,8 @@ metadata:
   name: {{ .Chart.Name }}-sts
   namespace: {{ .Chart.Name }}
 spec:
-  serviceName: {{ .Values.statefulset.sql-svc }}
-  replicas: {{ .Values.statefulset.replicascount | default 2}}
+  serviceName: {{ .Values.statefulset.sqlsvc }}
+  replicas: {{ .Values.statefulset.replicascount | default 2 }}
   updateStrategy:
     type: {{ .Values.statefulset.type }}
   selector:
@@ -60,7 +59,6 @@ spec:
           ports:
             - containerPort: {{ .Values.sql.port }}
           name: {{ .Values.sql.conatinerName }}
-          restartPolicy: OnFailure
           volumeMounts:
             - name: pvc-volume
               mountPath: /external-volume
@@ -69,17 +67,17 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Chart.Name }}-secret
-                  key: {{ .Values.DB_PASSWORD | base64 }}
+                  key: DB_PASSWORD
             - name: MYSQL_USER
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Chart.Name }}-cm
-                  key: {{ .Values.DB_USER }}
+                  key: DB_USER
             - name: MYSQL_DATABASE
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Chart.Name }}-cm
-                  key: {{ .Values.DB_NAME }}
+                  key: DB_NAME
       volumes:          
         - name: pvc-volume
           persistentVolumeClaim:
@@ -89,7 +87,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.statefulset.sql-svc }}
+  name: {{ .Values.statefulset.sqlsvc }}
   namespace: {{ .Chart.Name }}
 spec:
   clusterIP: None
@@ -120,6 +118,7 @@ spec:
     spec:
       containers:
         - image: "{{ .Values.deploy.image }}:{{ .Values.deploy.version }}"
+          name: deploy-container
           ports:
             - containerPort: {{ .Values.deploy.port }}
           restartPolicy: Always
@@ -129,22 +128,22 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Chart.Name }}-cm
-                  key: {{ .Values.statefulset.sql-svc }}
+                  key: DB_HOST
             - name: DB_PORT
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Chart.Name }}-cm
-                  key: {{ .Values.DB_PORT }}
+                  key: DB_PORT
             - name: DB_USER
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Chart.Name }}-cm
-                  key: {{ .Values.DB_USER }}
+                  key: DB_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Chart.Name }}-secre
-                  key: {{ .Values.DB_PASSWORD | base64 }}
+                  name: {{ .Chart.Name }}-secret
+                  key: DB_PASSWORD
 ---
 apiVersion: v1
 kind: Service
@@ -154,7 +153,7 @@ metadata:
 spec:
   type: {{ .Values.deploysvc.type }}
   selector:
-    app: front-ned
+    app: front-end
   ports:
     - port: {{ .Values.deploysvc.port }}
       targetPort: {{ .Values.deploy.port }}
