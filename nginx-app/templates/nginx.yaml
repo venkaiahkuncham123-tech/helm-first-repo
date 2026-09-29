@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-cm
+  namespace: {{ .Chart.Name }}
+data:
+  DB_HOST: {{ .Values.DB_HOST | quote }}
+  DB_NAME: {{ .Values.DB_NAME | quote }}
+  DB_USER: {{ .Values.DB_USER | quote }}
+  DB_PORT: {{ .Values.DB_PORT | quote }}
+--
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Chart.Name }}-secret
+  namespace: {{ .Chart.Name }}
+type: Opaque
+data:
+  DB_PASSWORD: {{ .Values.DB_PASSWORD | base64 }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Chart.Name }}-pvc
+  namespace: {{ .Chart.Name }}
+spec:
+  acessModes:
+    - {{ .Values.pvc.mode }}
+  storageClassName: {{ .Values.pvc.sc-name }}
+  resources:
+    requests:
+      storage: {{ .Values.pvc.gb }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Chart.Name }}-sts
+  namespace: {{ .Chart.Name }}
+spec:
+  serviceName: {{ .Values.statefulset.sql-svc }}
+  replicas: {{ .Values.statefulset.replicascount | default 2}}
+  updateStrategy:
+    type: {{ .Values.statefulset.type }}
+  selector:
+     matchLabels: 
+        sql: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        sql: {{ .Chart.Name }}
+    spec:
+      containers:
+        - image: {{ .Values.sql.image }}
+          ports:
+            - containerPort: {{ .Values.sql.port }}
+          name: {{ .Values.sql.conatinerName }}
+          restartPolicy: OnFailure
+          volumeMounts:
+            - name: pvc-volume
+              mountPath: /external-volume
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Chart.Name }}-secret
+                  key: {{ .Values.DB_PASSWORD | base64 }}
+            - name: MYSQL_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Chart.Name }}-cm
+                  key: {{ .Values.DB_USER }}
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Chart.Name }}-cm
+                  key: {{ .Values.DB_NAME }}
+      volumes:          
+        - name: pvc-volume
+          persistentVolumeClaim:
+            claimName: {{ .Chart.Name }}-pvc
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.statefulset.sql-svc }}
+  namespace: {{ .Chart.Name }}
+spec:
+  clusterIP: None
+  selector:
+     sql: {{ .Chart.Name }}
+  ports: 
+    - port: {{ .Values.sqlservice.port }}
+      targetPort: {{ .Values.sql.port }}
+      protocol: TCP
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}-deploy
+  namespace: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.deploy.count | default 1 }}
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: front-end
+  template:
+    metadata:
+      labels:
+        app: front-end
+    spec:
+      containers:
+        - image: "{{ .Values.deploy.image }}:{{ .Values.deploy.version }}"
+          ports:
+            - containerPort: {{ .Values.deploy.port }}
+          restartPolicy: Always
+          imagePullPolicy: Always
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Chart.Name }}-cm
+                  key: {{ .Values.statefulset.sql-svc }}
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Chart.Name }}-cm
+                  key: {{ .Values.DB_PORT }}
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Chart.Name }}-cm
+                  key: {{ .Values.DB_USER }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Chart.Name }}-secre
+                  key: {{ .Values.DB_PASSWORD | base64 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Chart.Name }}-deploy-svc
+  namespace: {{ .Chart.Name }}
+spec:
+  type: {{ .Values.deploysvc.type }}
+  selector:
+    app: front-ned
+  ports:
+    - port: {{ .Values.deploysvc.port }}
+      targetPort: {{ .Values.deploy.port }}
+      protocol: TCP
