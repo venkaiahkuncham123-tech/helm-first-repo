@@ -12,4 +12,4 @@ image:
 
 service:
   type: NodePort
-  nodeport: 32001
+  nodeport: 32006
