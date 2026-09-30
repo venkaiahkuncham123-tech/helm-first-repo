@@ -8,7 +8,7 @@ pvc:
   gb: 5Gi
 statefulset:
   sqlsvc: helm-sql-svc
-  replicascount: 1
+  replicascount: 3
   type: OnDelete
 sql:
   image: mysql
